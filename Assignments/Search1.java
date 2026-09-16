@@ -1,0 +1,14 @@
+class Search1 {
+    public int search(int[] nums, int target) {
+        int index=-1,i;
+        for(i=0;i<nums.length;i++)
+        {
+            if(nums[i]==target)
+            {
+                index=i;
+                break;
+            }
+        }
+        return index;
+    }
+}
