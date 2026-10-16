@@ -24,36 +24,43 @@ void addVehicle()
 	struct Vehicle v;
 	int i;
 	printf("\nEnter vehicle number: ");
-scanf("%19s", v.number);
+	scanf("%19s", v.number);
 
-if (strlen(v.number) > 10) {
-    printf("Vehicle number must not exceed 10 characters!\n");
-    return;
-}
-    //no duplicstes are allowed
+	if (strlen(v.number) > 10) {
+		printf("Vehicle number must not exceed 10 characters!\n");
+		return;
+	}
+	//no duplicates are allowed (vehicles that already passed, road == 0, are ignored)
 	for (i = 0; i < count; i++) 
 	{
-		if (strcmp(vehicles[i].number, v.number) == 0) 
+		if (vehicles[i].road != 0 &&
+		    strcmp(vehicles[i].number, v.number) == 0) 
 		{
 			printf("Duplicate vehicle number! Entry rejected.\n");
 			return;
 		}
 	}
-	printf("Enter vehicle type (Car/Bike/Bus/Ambulance/FireTruck): ");
-	scanf("%s", v.type);
+	printf("Enter vehicle type (car/bike/bus/ambulance/fireTruck): ");
+	scanf("%19s", v.type);
 	printf("Enter road number (1-4): ");
 	scanf("%d", &v.road);
 	
-    //validating the road number
+	//validating the road number
 	if (v.road < 1 || v.road > 4) 
 	{
 		printf("Invalid road number!\n");
 		return;
 	}
+
+	if (count >= MAX || rear[v.road - 1] >= MAX)
+	{
+		printf("Capacity reached! Cannot add more vehicles.\n");
+		return;
+	}
 	
-    //the emergency vehicle is identified with this
-	if (strcmp(v.type, "Ambulance") == 0 ||
-	        strcmp(v.type, "FireTruck") == 0) 
+	//the emergency vehicle is identified with this
+	if (strcmp(v.type, "ambulance") == 0 ||
+	        strcmp(v.type, "fireTruck") == 0) 
 	{
 		v.emergency = 1;
 	} 
@@ -100,30 +107,55 @@ void displayQueues() {
 	}
 }
 
-void dequeueVehicle() {
-	int road;
+
+
+void dequeueVehicle()
+{
+	int road, i;
 	printf("\nEnter road number: ");
 	scanf("%d", &road);
-	if (road < 1 || road > 4) 
+
+	if (road < 1 || road > 4)
 	{
 		printf("Invalid road number!\n");
 		return;
 	}
-	if (front[road - 1] == rear[road - 1]) 
+
+	int r = road - 1;
+
+	if (front[r] >= rear[r])
 	{
 		printf("Road %d queue is empty.\n", road);
 		return;
 	}
+
 	printf("Vehicle %s has passed from Road %d.\n",
-	       queue[road - 1][front[road - 1]].number,
-	       road);
-	front[road - 1]++;//deletion done from front
+	       queue[r][front[r]].number, road);
+
+	/* Mark vehicle as removed in the master list */
+	for (i = 0; i < count; i++)
+	{
+		if (vehicles[i].road != 0 &&
+		    strcmp(vehicles[i].number, queue[r][front[r]].number) == 0)
+		{
+			vehicles[i].road = 0;
+			break;
+		}
+	}
+
+	for (i = front[r]; i < rear[r] - 1; i++)
+	{
+		queue[r][i] = queue[r][i + 1];
+	}
+
+	rear[r]--;
 }
+
 
 
 /* MODULE 3: TRAFFIC DENSITY */
 void densityAnalysis() {
-	int i, vehiclesOnRoad, density;
+	int i, vehiclesOnRoad;
 	printf("\n========== TRAFFIC DENSITY ==========\n");
 	for (i = 0; i < ROADS; i++) 
 	{
@@ -140,58 +172,58 @@ void densityAnalysis() {
 
 /* MODULE 4: SMART SIGNAL MANAGEMENT */
 void signalManagement() {
-    int i, j, k;
-    int road[ROADS] = {0, 1, 2, 3};
-    int density[ROADS];
-    int emergency[ROADS];
-    int temp;
+	int i, j;
+	int road[ROADS] = {0, 1, 2, 3};
+	int density[ROADS];
+	int emergency[ROADS];
+	int temp;
 
-    /* Calculate density and emergency status */
-    for (i = 0; i < ROADS; i++) 
-    {
-        density[i] = rear[i] - front[i];
-        emergency[i] = 0;
-        for (j = front[i]; j < rear[i]; j++) 
-        {
-            if (queue[i][j].emergency) 
-            {
-                emergency[i] = 1;
-                break;
-            }
-        }
-    }
-/* Sort roads:Emergency first,then highest density*/
-    for (i = 0; i < ROADS - 1; i++) 
-    {
-        for (j = i + 1; j < ROADS; j++) 
-        {
-            if (emergency[road[j]] > emergency[road[i]] ||
-               (emergency[road[j]] == emergency[road[i]] &&
-                density[road[j]] > density[road[i]])) {
-                temp = road[i];
-                road[i] = road[j];
-                road[j] = temp;
-            }
-        }
-    }
-    printf("\n========== SMART SIGNAL ==========\n");
-    /* Display signal order */
-    for (i = 0; i < ROADS; i++) 
-    {
-        int r = road[i];
-        int time;
-        if (density[r] <= 2)
-            time = 20;
-        else if (density[r] <= 5)
-            time = 40;
-        else
-            time = 60;
-        printf("\n%d. Road %d", i + 1, r + 1);
-        if (emergency[r])
-            printf(" -> EMERGENCY PRIORITY");
-        printf("\n   Vehicles: %d", density[r]);
-        printf("\n   Green Light: %d seconds\n", time);
-    }
+	/* Calculate density and emergency status */
+	for (i = 0; i < ROADS; i++) 
+	{
+		density[i] = rear[i] - front[i];
+		emergency[i] = 0;
+		for (j = front[i]; j < rear[i]; j++) 
+		{
+			if (queue[i][j].emergency) 
+			{
+				emergency[i] = 1;
+				break;
+			}
+		}
+	}
+	/* Sort roads: Emergency first, then highest density */
+	for (i = 0; i < ROADS - 1; i++) 
+	{
+		for (j = i + 1; j < ROADS; j++) 
+		{
+			if (emergency[road[j]] > emergency[road[i]] ||
+			   (emergency[road[j]] == emergency[road[i]] &&
+			    density[road[j]] > density[road[i]])) {
+				temp = road[i];
+				road[i] = road[j];
+				road[j] = temp;
+			}
+		}
+	}
+	printf("\n========== SMART SIGNAL ==========\n");
+	/* Display signal order */
+	for (i = 0; i < ROADS; i++) 
+	{
+		int r = road[i];
+		int time;
+		if (density[r] <= 2)
+			time = 20;
+		else if (density[r] <= 5)
+			time = 40;
+		else
+			time = 60;
+		printf("\n%d. Road %d", i + 1, r + 1);
+		if (emergency[r])
+			printf(" -> EMERGENCY PRIORITY");
+		printf("\n   Vehicles: %d", density[r]);
+		printf("\n   Green Light: %d seconds\n", time);
+	}
 }
 
 /* MODULE 5: EMERGENCY VEHICLE PRIORITY */
@@ -218,8 +250,14 @@ void trafficReport() {
 	int highestRoad = 0;
 	int highestCount = 0;
 	int emergencyCount = 0;
+	int total = 0;
+
+	/* Total counts only vehicles still present on the roads */
+	for (i = 0; i < ROADS; i++)
+		total += rear[i] - front[i];
+
 	printf("\n========== TRAFFIC REPORT ==========\n");
-	printf("Total vehicles: %d\n", count);
+	printf("Total vehicles: %d\n", total);
 	for (i = 0; i < ROADS; i++) 
 	{
 		int roadCount = rear[i] - front[i];
@@ -258,103 +296,115 @@ void trafficReport() {
 
 /* MODULE 7: SHORTEST PATH */
 void dijkstra() {
-    int graph[4][4] = {
-        {0, 5, 2, 0},
-        {5, 0, 0, 3},
-        {2, 0, 0, 4},
-        {0, 3, 4, 0}
-    };
-    int distance[4];
-    int visited[4] = {0};
-    int parent[4];
-    int source, destination;
-    int i, j, min, next;
-    printf("\nEnter source junction (1-4): ");
-    scanf("%d", &source);
-    printf("Enter destination junction (1-4): ");
-    scanf("%d", &destination);
-    source--;
-    destination--;
-    for (i = 0; i < 4; i++) 
-    {
-        distance[i] = INF;
-        parent[i] = -1;
-    }
-    distance[source] = 0;
-    for (i = 0; i < 4; i++) 
-    {
-        min = INF;
-        next = -1;
-        for (j = 0; j < 4; j++) 
-        {
-            if (!visited[j] && distance[j] < min) 
-            {
-                min = distance[j];
-                next = j;
-            }
-        }
-        if (next == -1)
-            break;
-        visited[next] = 1;
-        for (j = 0; j < 4; j++) 
-        {
-            if (graph[next][j] != 0 &&
-                !visited[j] &&
-                distance[next] + graph[next][j] < distance[j]) 
-            {
-
-                distance[j] = distance[next] + graph[next][j];
-                parent[j] = next;
-            }
-        }
-    }
-    if (distance[destination] == INF) {
-        printf("No route available.\n");
-        return;
-    }
-    printf("\nShortest distance: %d units\n",
-           distance[destination]);
-    printf("Shortest Path: ");
-    int path[4];
-    int length = 0;
-    int current = destination;
-    while (current != -1) 
-    {
-        path[length++] = current;
-        current = parent[current];
-    }
-
-    for (i = length - 1; i >= 0; i--) 
-    {
-        printf("%d", path[i] + 1);
-
-        if (i != 0)
-            printf(" -> ");
-    }
-    printf("\n");
-}
-
-/* DISPLAY ALL VEHICLES */
-void displayVehicles() {
-	int i;
-	if (count == 0) 
+	int graph[4][4] = {
+		{0, 5, 2, 0},
+		{5, 0, 0, 3},
+		{2, 0, 0, 4},
+		{0, 3, 4, 0}
+	};
+	int distance[4];
+	int visited[4] = {0};
+	int parent[4];
+	int source, destination;
+	int i, j, min, next;
+	printf("\nEnter source junction (1-4): ");
+	scanf("%d", &source);
+	printf("Enter destination junction (1-4): ");
+	scanf("%d", &destination);
+	if (source < 1 || source > 4 || destination < 1 || destination > 4)
 	{
-		printf("\nNo vehicles entered.\n");
+		printf("Invalid junction number!\n");
 		return;
 	}
-	printf("\n========== VEHICLE DETAILS ==========\n");
-	for (i = 0; i < count; i++) 
+	source--;
+	destination--;
+	for (i = 0; i < 4; i++) 
 	{
-		printf("\nVehicle %d\n", i + 1);
+		distance[i] = INF;
+		parent[i] = -1;
+	}
+	distance[source] = 0;
+	for (i = 0; i < 4; i++) 
+	{
+		min = INF;
+		next = -1;
+		for (j = 0; j < 4; j++) 
+		{
+			if (!visited[j] && distance[j] < min) 
+			{
+				min = distance[j];
+				next = j;
+			}
+		}
+		if (next == -1)
+			break;
+		visited[next] = 1;
+		for (j = 0; j < 4; j++) 
+		{
+			if (graph[next][j] != 0 &&
+			    !visited[j] &&
+			    distance[next] + graph[next][j] < distance[j]) 
+			{
+				distance[j] = distance[next] + graph[next][j];
+				parent[j] = next;
+			}
+		}
+	}
+	if (distance[destination] == INF) {
+		printf("No route available.\n");
+		return;
+	}
+	printf("\nShortest distance: %d units\n",
+	       distance[destination]);
+	printf("Shortest Path: ");
+	int path[4];
+	int length = 0;
+	int current = destination;
+	while (current != -1) 
+	{
+		path[length++] = current;
+		current = parent[current];
+	}
+
+	for (i = length - 1; i >= 0; i--) 
+	{
+		printf("%d", path[i] + 1);
+
+		if (i != 0)
+			printf(" -> ");
+	}
+	printf("\n");
+}
+
+/* DISPLAY ALL VEHICLES (only those still on the roads) */
+void displayVehicles()
+{
+	int i, shown = 0;
+
+	for (i = 0; i < count; i++)
+	{
+		if (vehicles[i].road == 0)
+			continue;
+
+		if (shown == 0)
+			printf("\n========== VEHICLE DETAILS ==========\n");
+
+		shown++;
+		printf("\nVehicle %d\n", shown);
 		printf("Number : %s\n", vehicles[i].number);
 		printf("Type   : %s\n", vehicles[i].type);
 		printf("Road   : %d\n", vehicles[i].road);
+
 		if (vehicles[i].emergency)
 			printf("Priority: EMERGENCY\n");
 		else
 			printf("Priority: NORMAL\n");
 	}
+
+	if (shown == 0)
+		printf("\nNo vehicles entered.\n");
 }
+
 
 /* MAIN */
 int main() {
@@ -374,7 +424,8 @@ int main() {
 		printf("9. Shortest Path\n");
 		printf("10. Exit\n");
 		printf("\nEnter your choice: ");
-		scanf("%d", &choice);
+		if (scanf("%d", &choice) != 1)
+			break;
 
 		switch (choice) {
 
@@ -414,9 +465,9 @@ int main() {
 			dijkstra();
 			break;
 
-        case 10:
-            exit(0);
-            
+		case 10:
+			exit(0);
+
 		default:
 			printf("\nInvalid choice!\n");
 		}
